@@ -75,7 +75,7 @@ module OpenTelemetry
           return FAILURE if encoded_span_sizes.any? { |size| size > @max_packet_size }
 
           encoded_spans.zip(encoded_span_sizes).chunk(&batcher).each do |batch_and_spans_with_size|
-            yield Thrift::Batch.new('process' => encoded_process, 'spans' => batch_and_spans_with_size.last.map(&:first))
+            yield Thrift::Batch.new('process' => encoded_process(span_data), 'spans' => batch_and_spans_with_size.last.map(&:first))
           end
           SUCCESS
         end
@@ -122,12 +122,11 @@ module OpenTelemetry
           @transport.size
         end
 
-        def encoded_process
+        def encoded_process(span_data)
           @encoded_process ||= begin
-            tags = [] # TODO: figure this out.
-            # tags = OpenTelemetry.tracer.resource.label_enumerator.map do |key, value|
-            #   Thrift::Tag.new('key' => key, 'vType' => Thrift::TagType::STRING, 'vStr' => value)
-            # end
+            tags = span_data[0].library_resource.label_enumerator.map do |key, value|
+              Thrift::Tag.new('key' => key, 'vType' => Thrift::TagType::STRING, 'vStr' => value)
+            end
             Thrift::Process.new('serviceName' => @service_name, 'tags' => tags)
           end
         end
